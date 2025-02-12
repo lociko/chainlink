@@ -53,13 +53,15 @@ runs:
 
     - name: Check for changes outside of artifact scope
       shell: bash
+      env:
+        PRODUCT: ${{ inputs.product }}
       run: |
         echo "::debug::All modified contracts:"
         echo "${{ steps.transform_input_array.outputs.sol_files }}" | tr ',' '\n'
-        if [ "${{ inputs.product }}" = "shared" ]; then
-          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/interfaces/ && !/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
+        if [ "${PRODUCT}" = "shared" ]; then
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/interfaces/ && !/^contracts\/src\/v0\.8\/${PRODUCT}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
         else
-          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ inputs.product }}/"
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${PRODUCT}/"
         fi
         echo "::debug::Excluded paths: $excluded_paths_pattern"
         unexpected_files=$(echo "${{ steps.transform_input_array.outputs.sol_files }}" | tr ',' '\n' | awk "$excluded_paths_pattern")
