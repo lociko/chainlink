@@ -68,7 +68,6 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	// verified
 	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
-	// TODO: add this to offramp address lookup table
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
 
 	// addressing errcheck in the next PR
@@ -98,10 +97,15 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 
+	addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, chainState.OffRamp)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
+	}
+
 	if err := solCommonUtil.ExtendLookupTable(
 		e.GetContext(),
 		chain.Client,
-		chainState.OfframpAddressLookupTable,
+		addressLookupTable,
 		*chain.DeployerKey,
 		[]solana.PublicKey{tokenBillingPDA},
 	); err != nil {
@@ -171,10 +175,15 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 
+	addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, chainState.OffRamp)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
+	}
+
 	if err := solCommonUtil.ExtendLookupTable(
 		e.GetContext(),
 		chain.Client,
-		chainState.OfframpAddressLookupTable,
+		addressLookupTable,
 		*chain.DeployerKey,
 		[]solana.PublicKey{remoteBillingPDA},
 	); err != nil {

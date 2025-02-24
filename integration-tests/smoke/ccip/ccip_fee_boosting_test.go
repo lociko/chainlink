@@ -8,7 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
@@ -24,9 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 var (
@@ -35,9 +36,10 @@ var (
 )
 
 func Test_CCIPFeeBoosting(t *testing.T) {
+	t.Skip("Skipping test as Fee Boosting is disabled")
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
+		testhelpers.WithOCRConfigOverride(func(params *v1_6.CCIPOCRParams) {
 			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 1
 			// Disable token price updates
 			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
@@ -80,7 +82,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		)
 	t.Log("Adjusted gas price on dest chain:", adjustedGasPriceDest)
 
-	feeQuoterCfg := changeset.DefaultFeeQuoterDestChainConfig(true)
+	feeQuoterCfg := v1_6.DefaultFeeQuoterDestChainConfig(true)
 	// the default adds 10% to the gas price, we want to increase it
 	// to make sure the fee boosting will be finished in proper time for testing
 	feeQuoterCfg.GasMultiplierWeiPerEth = 120e16
@@ -96,11 +98,11 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		feeQuoterCfg)
 
 	// Update token prices in destination chain FeeQuoter
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+	e.Env, err = commoncs.Apply(t, e.Env, e.TimelockContracts(t),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					destChain: {
 						TokenPrices: map[common.Address]*big.Int{
 							state.Chains[destChain].LinkToken.Address(): linkPrice,
@@ -109,8 +111,8 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	startBlocks := make(map[uint64]*uint64)
@@ -137,11 +139,11 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		DestChainSelector:   destChain,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+	e.Env, err = commoncs.Apply(t, e.Env, e.TimelockContracts(t),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					sourceChain: {
 						GasPrices: map[uint64]*big.Int{
 							destChain: originalGasPriceDestUSD,
@@ -149,8 +151,8 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	// Confirm gas prices are updated
