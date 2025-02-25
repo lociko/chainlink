@@ -125,7 +125,7 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: ubuntu-24.04-8cores-32GB-ARM
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
